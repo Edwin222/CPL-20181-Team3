@@ -1,0 +1,16 @@
+﻿  main.cpp
+c:\users\edwin\source\repos\test_cctv\cctv\main.cpp(20): warning C4477: 'printf' : 서식 문자열 '%d'에 'int' 형식의 인수가 필요하지만 variadic 인수 1의 형식이 'time_t'입니다.
+  c:\users\edwin\source\repos\test_cctv\cctv\main.cpp(20): note: 서식 문자열에서 '%lld'을(를) 사용하는 것이 좋습니다.
+  c:\users\edwin\source\repos\test_cctv\cctv\main.cpp(20): note: 서식 문자열에서 '%I64d'을(를) 사용하는 것이 좋습니다.
+c:\users\edwin\source\repos\test_cctv\cctv\main.cpp(27): warning C4326: 'main'의 반환 형식이 'int'이어야 하는데 'void'입니다.
+main.obj : error LNK2019: __imp__NET_DVR_Init@0 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_Cleanup@0 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_SetExceptionCallBack_V30@16 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_SetConnectTime@8 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_SetReconnect@8 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_Login_V40@8 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_Logout@4 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_GetLastError@0 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_RealPlay_V40@16 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+main.obj : error LNK2019: __imp__NET_DVR_StopRealPlay@4 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+C:\Users\Edwin\source\repos\Test_CCTV\Debug\cctv.exe : fatal error LNK1120: 10개의 확인할 수 없는 외부 참조입니다.
