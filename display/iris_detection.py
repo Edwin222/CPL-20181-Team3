@@ -165,27 +165,29 @@ def irisDetect(output, image):
 
 	
 if __name__ == "__main__":
-	image = cv2.imread("eye4.jpg")
+	image = cv2.imread("eyes5.jpg")
 	output = image.copy()
 	
 	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
 	
 	cv2.imshow("origin", image)
 	
+	"""
 	processed_img = getPupil(image.copy())
 	
 	cv2.imshow("pros", processed_img)
+	"""
 	
-	hsv = cv2.cvtColor(processed_img, cv2.COLOR_BGR2HSV)
+	hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 	cv2.imshow("hsv", hsv)
 	
 	(channel_h, channel_s, channel_v) = cv2.split(hsv)
 	
-	cv2.imshow("result", channel_h)
-	cv2.imshow("s", channel_s)
-	cv2.imshow("222222", channel_v)
+	cv2.imshow("hue", channel_h)
+	cv2.imshow("saturation", channel_s)
+	cv2.imshow("value", channel_v)
 	
-	pupil = modImage("pu_man", channel_h, kernel, 1,1)
+	pupil = modImage("pu_man", channel_h, kernel, 5,5)
 	iris = modImage("ir_man", channel_v, kernel, 5, 5, True)
 
 	cv2.imshow("maden_pu", pupil)
