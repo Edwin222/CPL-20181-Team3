@@ -6,30 +6,30 @@ import argparse
 
 if __name__=="__main__":
 
-	parse = argparse.ArgumentParser()
-    
-    parser.add_argument("name", help="name of image")
-    parser.add_argument("imgNum", help="number of image", type=int)
-    parser.add_argument("path", help="path of image")
+	parser = argparse.ArgumentParser()
+	parser.add_argument("name", help="name of image")
+	parser.add_argument("imgNum", help="number of image", type=int)
+	parser.add_argument("path", help="path of image")
 	
-    args = parser.parse_args()
+	args = parser.parse_args()
 
 	face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
 
-	imageName = str(args.name) + str(imgNum) + ".jpg"
-    imagePath = os.path.join(str(path), imageName)
-    image = cv2.imread(imagePath)
+	print(args.path)
 	
-	imageName = "face.jpg"
-	imgNum = 1
+	imgNum = int(args.imgNum)
+	imageName = str(args.name)
+	imagePath = os.path.join(str(args.path), imageName)
+	image = cv2.imread(imagePath)
+	
+	print(imagePath)
 
-	image = cv2.imread(imageName)
 	faces = face_cascade.detectMultiScale(image, 1.3, 5)
 	
 	for (x,y,w,h) in faces:
 		ret, enc = cv2.imencode(".jpg", image[y:y+h, x:x+w])
 		b64 = base64.b64encode(enc)
-		
+	
 		jsonRecord = {
 			'imgName': imageName,
 			'imgNumber': str(imgNum),
@@ -38,5 +38,6 @@ if __name__=="__main__":
 		
 		with open(imageName + '.json', 'w') as faceRecord:
 			json.dump(jsonRecord, faceRecord)
-		
+
 		print(imageName + ".json")
+		

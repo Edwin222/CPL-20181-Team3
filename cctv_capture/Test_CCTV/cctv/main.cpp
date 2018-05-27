@@ -6,7 +6,11 @@
 #include "HCNetSDK.h"
 #include <time.h>
 
+#include <cpprest/http_client.h>
+#include <cpprest/filestream.h>
+
 using namespace std;
+
 
 //Macro Definition of Time Resolution
 #define GET_YEAR(_time_)      (((_time_)>>26) + 2000) 
@@ -16,7 +20,9 @@ using namespace std;
 #define GET_MINUTE(_time_)    (((_time_)>>6)  & 63)
 #define GET_SECOND(_time_)    (((_time_)>>0)  & 63)
 
+char Lpath[256] = { 0 };
 int pictureCount = 0;
+
 LONG lRealPlayHandle;
 
 BOOL CALLBACK MessageCallback(LONG lCommand, NET_DVR_ALARMER *pAlarmer, char *pAlarmInfo, DWORD dwBufLen, void* pUser)
@@ -33,12 +39,15 @@ BOOL CALLBACK MessageCallback(LONG lCommand, NET_DVR_ALARMER *pAlarmer, char *pA
 	break;
 	case COMM_UPLOAD_FACESNAP_RESULT: //Face detection alarm information
 	{
+		char imgName[] = "FaceSnapPick";
 		char cFileName[256] = { 0 };
-		sprintf(cFileName, "FaceSnapPick_%d.jpg", pictureCount);
+		sprintf(cFileName, "%s%d.jpg", imgName, pictureCount);
 		NET_DVR_CapturePicture(lRealPlayHandle, cFileName);
 		pictureCount++;
 
 		printf("Shotted\n");
+		char requestPath[256] = { 0 };
+		sprintf(requestPath, "");
 	}
 	break;
 	/*
@@ -98,9 +107,52 @@ BOOL CALLBACK MessageCallback(LONG lCommand, NET_DVR_ALARMER *pAlarmer, char *pA
 }
 
 void main() {
+	GetCurrentDirectoryA(256, Lpath);
+	int LimgNum = 0;
+	char LimgName[] = "FaceSnapPick0.jpg";
+
+	auto fileStream = make_shared<concurrency::streams::ostream>();
+
+	pplx::task<void> requestTask = concurrency::streams::fstream::open_ostream(U("result.html"))
+		.then([=](concurrency::streams::ostream outFile) {
+		*fileStream = outFile;
+
+		web::http::client::http_client client(U("http://localhost:3000"));
+
+		web::uri_builder builder(U("/imgProcess"));
+		builder.append_query(U("name"), U(imgName));
+		builder.append_query(U("path"), U(path));
+		builder.append_query(U("num"), U(imgNum));
+		std::cout << builder.to_string().c_str() << std::endl;
+
+		return client.request(web::http::methods::POST, builder.to_string());
+
+	}).then([=](web::http::http_response response) {
+		printf("Received response status code:%u\n", response.status_code());
+		
+		return ((concurrency::streams::istream)response.body()).read_to_end(fileStream->streambuf());
+
+	}).then([=](size_t) {
+		return fileStream->close();
+	});
+
+	try {
+		requestTask.wait();
+	}
+	catch (const exception &e) {
+		printf("Error Exception : %s\n", e.what());
+	}
+
+	std::system("pause");
+}
+
+/*
+void main() {
 	//---------------------------------------
 	// Initialize
 	NET_DVR_Init();
+	GetCurrentDirectoryA(256, path);
+
 	//Set connected and reconnected time
 	NET_DVR_SetConnectTime(2000, 1);
 	NET_DVR_SetReconnect(10000, true);
@@ -185,4 +237,4 @@ void main() {
 	NET_DVR_Cleanup();
 	return;
 }
-
+*/
