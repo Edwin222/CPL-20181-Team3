@@ -10,15 +10,13 @@ from sympy import Symbol
 X_POS = 0
 Y_POS = 1
 Thresh = 170
-imageName = "eyes1.jpg"
+imageName = "picture.jpg"
 
 def modImage(sceneName, img, kernel, erodeNum, dilateNum, invertion=False):
 	ret, result = cv2.threshold(img, Thresh, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 	
 	if(invertion):
 		result = cv2.bitwise_not(result)
-	
-	cv2.imshow(sceneName, result)
 	
 	result = cv2.erode(result, kernel, iterations=erodeNum)
 	result = cv2.dilate(result, kernel, iterations=dilateNum)
@@ -27,7 +25,7 @@ def modImage(sceneName, img, kernel, erodeNum, dilateNum, invertion=False):
 	
 	return result
 
-def searchBorder(img):
+def searchBorder(img, numOfBorder):
 	result_point = []
 	myQ = []
 	
@@ -77,6 +75,8 @@ def searchBorder(img):
 						
 					visited[point[Y_POS]][point[X_POS]] = True
 					result_point.append(point)
+					if( len(result_point) >= numOfBorder ):
+						return result_point
 					
 					test_border = False
 					temp_list = []
@@ -119,11 +119,39 @@ def findCircleCenter(pointA, pointB, pointC):
 	
 	return int(result[0][x]), int(result[0][y]), int(radius)
 
-def drawCircle(pointList, output_image, point_color, circle_color):
+def findResult(pointList, rate):
 	unit_length = int(len(pointList) / 3)
 	total_length = int(len(pointList) - unit_length*2)
 	
-	for i in range(0, 20):
+	result = {}
+	
+	for i in range(0, rate):
+		try:
+			x,y,radius = findCircleCenter(pointList[i], pointList[i+unit_length], pointList[i+unit_length*2])
+			if (x,y) in result:
+				result[(x,y)].append(radius)
+			else:
+				result[(x,y)] = [ radius ]
+				
+		except:
+			continue
+		
+		if(x < 0 or y < 0):
+			continue
+	
+	if len(result) == 0:
+		return None, None, None
+		
+	max_key = max(result, key=lambda p: len(result[p]))
+	max_value = result[max_key]
+	
+	return int(max_key[0]), int(max_key[1]), int(sum(max_value) / float(len(max_value)))
+
+def drawCircle(pointList, output_image, point_color, circle_color, rate):
+	unit_length = int(len(pointList) / 3)
+	total_length = int(len(pointList) - unit_length*2)
+	
+	for i in range(0, rate):
 		try:
 			x,y,radius = findCircleCenter(pointList[i], pointList[i+unit_length], pointList[i+unit_length*2])
 		except:
@@ -135,7 +163,6 @@ def drawCircle(pointList, output_image, point_color, circle_color):
 		cv2.circle(output_image, (x,y), radius, circle_color, 1)
 		cv2.rectangle(output_image, (x-2, y-2), (x+2, y+2), point_color, -1)
 		
-
 	
 def getPupil(eye_img):
 	pupilImg = cv2.inRange(eye_img.copy(), (30,30,30), (80,80,80))
@@ -160,7 +187,32 @@ def getPupil(eye_img):
 	return (pupilImg)
 
 	
-def irisDetect(output, image):
+def irisDetect_debug(output, image, scale, rate):
+	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
+	
+	processed_img = getPupil(image.copy())
+	
+	hsv = cv2.cvtColor(processed_img, cv2.COLOR_BGR2HSV)
+	(channel_h, channel_s, channel_v) = cv2.split(hsv)
+	cv2.imshow("hue", channel_h)
+	cv2.imshow("saturation", channel_s)
+	cv2.imshow("value", channel_v)
+	
+	pupil = modImage("pu_man", channel_h, kernel, 5, 5)
+	iris = modImage("ir_man", channel_v, kernel, 8, 8, True)
+	cv2.imshow("pupil", pupil)
+	cv2.imshow("iris", iris)
+	
+	pupil_point_list = searchBorder(pupil, scale)
+	iris_point_list = searchBorder(iris, scale)
+	
+	if not pupil_point_list is None:
+		drawCircle(pupil_point_list, output, (255, 255, 0), (0, 255, 0), rate)
+	
+	if not iris_point_list is None:
+		drawCircle(iris_point_list, output, (0, 255, 255), (255, 0, 0), rate)
+	
+def irisDetect(output, image, scale, rate):
 	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
 	
 	processed_img = getPupil(image.copy())
@@ -168,68 +220,33 @@ def irisDetect(output, image):
 	hsv = cv2.cvtColor(processed_img, cv2.COLOR_BGR2HSV)
 	(channel_h, channel_s, channel_v) = cv2.split(hsv)
 	
-	cv2.imshow("342423", channel_s)
-	cv2.imshow("result", channel_h)
-	cv2.imshow("222222", channel_v)
-	
 	pupil = modImage("pu_man", channel_h, kernel, 5, 5)
 	iris = modImage("ir_man", channel_v, kernel, 8, 8, True)
 
-	pupil_point_list = searchBorder(pupil)
-	iris_point_list = searchBorder(iris)
+	pupil_point_list = searchBorder(pupil, scale)
+	iris_point_list = searchBorder(iris, scale)
 	
 	if not pupil_point_list is None:
-		drawCircle(pupil_point_list, output, (255, 255, 0), (0, 255, 0))
-	
+		x,y,radius = findResult(pupil_point_list, rate)
+		
+		if x is not None:
+			cv2.circle(output, (x,y), radius, (0, 255, 0), 1)
+			cv2.rectangle(output, (x-2, y-2), (x+2, y+2), (255, 255, 0), -1)
+	"""
 	if not iris_point_list is None:
-		drawCircle(iris_point_list, output, (0, 255, 255), (255, 0, 0))
-	
-	cv2.imshow("output", output)
-	cv2.imshow("pupil", pupil)
-	cv2.imshow("iris", iris)
-
+		x,y,radius = findResult(iris_point_list, rate)
+		
+		if x is not None:
+			cv2.circle(output, (x,y), radius, (255, 0, 0), 1)
+			cv2.rectangle(output, (x-2, y-2), (x+2, y+2), (0, 255, 255), -1)
+	"""
 	
 if __name__ == "__main__":
 	image = cv2.imread(imageName)
 	output = image.copy()
 	
-	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
-	
-	cv2.imshow("origin", image)
-	
-	processed_img = getPupil(image.copy())
-	cv2.imshow("pros", processed_img)
-	
-	hsv = cv2.cvtColor(processed_img, cv2.COLOR_BGR2HSV)
-	cv2.imshow("hsv", hsv)
-	
-	(channel_h, channel_s, __) = cv2.split(hsv)
-	
-	hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-	(_, __, channel_v) = cv2.split(hsv)
-	
-	cv2.imshow("hue", channel_h)
-	cv2.imshow("saturation", channel_s)
-	cv2.imshow("value", channel_v)
-	
-	pupil = modImage("pu_man", channel_s, kernel, 2,2)
-	iris = modImage("ir_man", channel_v, kernel, 5, 5, True)
-
-	cv2.imshow("maden_pu", pupil)
-	cv2.imshow("maden_ir", iris)
-	
-	pupil_point_list = searchBorder(pupil)
-	iris_point_list = searchBorder(iris)
-	
-	if not pupil_point_list is None:
-		drawCircle(pupil_point_list, output, (255, 255, 0), (0, 255, 0))
-	
-	if not iris_point_list is None:
-		drawCircle(iris_point_list, output, (0, 255, 255), (255, 0, 0))
-	
-	cv2.imshow("output", output)
-	cv2.imshow("pupil", pupil)
-	cv2.imshow("iris", iris)
+	irisDetect(output, image, 1500, 30)
+	cv2.imshow("display", output)
 
 	cv2.waitKey(0)
 	if cv2.waitKey(1)&0xFF == ord('q'):

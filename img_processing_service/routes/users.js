@@ -45,16 +45,22 @@ router.post('/', function (req, res, next) {
 
         // read json file
         fs.readFile(jsonFileName, 'utf8', (err, data) => {
-            executedResult = JSON.parse(data);
-
-            // produce message by kafka
-            producer.sendRecord({
-                imgName: executedResult.imgName,
-                imgNum: executedResult.imgNumber,
-                encodedRecord: executedResult.encodeRecord
-            }, () => {
+            if (!data) {
+                console.log("can't find face in capture image");
                 res.send(result_str);
-            });
+            }
+            else {
+                executedResult = JSON.parse(data);
+
+                // produce message by kafka
+                producer.sendRecord({
+                    imgName: executedResult.imgName,
+                    imgNum: executedResult.imgNumber,
+                    encodedRecord: executedResult.encodeRecord
+                }, () => {
+                    res.send(result_str);
+                });
+            }
         });
     });
 });

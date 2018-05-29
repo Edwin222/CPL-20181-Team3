@@ -21,13 +21,10 @@ if __name__=="__main__":
 	imagePath = os.path.join(str(args.path), imageName)
 	image = cv2.imread(imagePath)
 	
-	print(imagePath)
-	
 	faces = face_cascade.detectMultiScale(image, 1.3, 5)
 	
 	for (x,y,w,h) in faces:
 		ret, enc = cv2.imencode(".jpg", image[y:y+h, x:x+w])
-		print(enc)
 		b64 = base64.b64encode(enc)
 	
 		jsonRecord = {

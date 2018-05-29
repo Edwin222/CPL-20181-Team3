@@ -1,1 +1,26 @@
 *.jpg
+*.json
+
+# gitignore for C++
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Visual Studio Files
+cctv_capture/Test_CCTV/Debug
+cctv_capture/Test_CCTV/Release
+*.suo
+*.csproj.user
+*.vbproj.user
+cctv_capture/Test_CCTV/ipch
+*sdf

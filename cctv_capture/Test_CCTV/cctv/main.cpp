@@ -1,16 +1,17 @@
 #define _CRT_SECURE_NO_WARNINGS
+
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include "Windows.h"
 #include "HCNetSDK.h"
 #include <time.h>
+#include <thread>
 
 #include <cpprest/http_client.h>
 #include <cpprest/filestream.h>
 
 using namespace std;
-
 
 //Macro Definition of Time Resolution
 #define GET_YEAR(_time_)      (((_time_)>>26) + 2000) 
@@ -25,91 +26,8 @@ int pictureCount = 0;
 
 LONG lRealPlayHandle;
 
-BOOL CALLBACK MessageCallback(LONG lCommand, NET_DVR_ALARMER *pAlarmer, char *pAlarmInfo, DWORD dwBufLen, void* pUser)
-{
-	switch (lCommand)
-	{
-	case COMM_ALARM_FACE_DETECTION:
-	{
-		NET_DVR_FACE_DETECTION struFaceDetectionAlarm = { 0 };
-		memcpy(&struFaceDetectionAlarm, pAlarmInfo, sizeof(NET_DVR_FACE_DETECTION));
-
-		printf("detection\n");
-	}
-	break;
-	case COMM_UPLOAD_FACESNAP_RESULT: //Face detection alarm information
-	{
-		char imgName[] = "FaceSnapPick";
-		char cFileName[256] = { 0 };
-		sprintf(cFileName, "%s%d.jpg", imgName, pictureCount);
-		NET_DVR_CapturePicture(lRealPlayHandle, cFileName);
-		pictureCount++;
-
-		printf("Shotted\n");
-		char requestPath[256] = { 0 };
-		sprintf(requestPath, "");
-	}
-	break;
-	/*
-	case COMM_UPLOAD_FACESNAP_RESULT: //Face capture alarm information
-	{
-		NET_VCA_FACESNAP_RESULT struFaceSnap = { 0 };
-		memcpy(&struFaceSnap, pAlarmInfo, sizeof(NET_VCA_FACESNAP_RESULT));
-
-		NET_DVR_TIME struAbsTime = { 0 };
-		struAbsTime.dwYear = GET_YEAR(struFaceSnap.dwAbsTime);
-		struAbsTime.dwMonth = GET_MONTH(struFaceSnap.dwAbsTime);
-		struAbsTime.dwDay = GET_DAY(struFaceSnap.dwAbsTime);
-		struAbsTime.dwHour = GET_HOUR(struFaceSnap.dwAbsTime);
-		struAbsTime.dwMinute = GET_MINUTE(struFaceSnap.dwAbsTime);
-		struAbsTime.dwSecond = GET_SECOND(struFaceSnap.dwAbsTime);
-
-		//Save captured scene picture
-		if (struFaceSnap.dwBackgroundPicLen > 0 && struFaceSnap.pBuffer2 != NULL)
-		{
-			printf("In If\n");
-			char cFilename[256] = { 0 };
-			HANDLE hFile;
-			DWORD dwReturn;
-
-			char chTime[128];
-			sprintf(chTime, "%4.4d%2.2d%2.2d%2.2d%2.2d%2.2d", struAbsTime.dwYear, struAbsTime.dwMonth, struAbsTime.dwDay, struAbsTime.dwHour, struAbsTime.dwMinute, struAbsTime.dwSecond);
-
-			sprintf(cFilename, "FaceSnapBackPic[%s][%s].jpg", struFaceSnap.struDevInfo.struDevIP.sIpV4, chTime);
-
-			hFile = CreateFile(cFilename, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-			if (hFile == INVALID_HANDLE_VALUE)
-			{
-				break;
-			}
-			WriteFile(hFile, struFaceSnap.pBuffer2, struFaceSnap.dwBackgroundPicLen, &dwReturn, NULL);
-			CloseHandle(hFile);
-			hFile = INVALID_HANDLE_VALUE;
-		}
-
-		printf("Face capture alarm[0x%x]: Abs[%4.4d%2.2d%2.2d%2.2d%2.2d%2.2d] Dev[ip:%s,port:%d,ivmsChan:%d] \n", \
-			lCommand, struAbsTime.dwYear, struAbsTime.dwMonth, struAbsTime.dwDay, struAbsTime.dwHour, \
-			struAbsTime.dwMinute, struAbsTime.dwSecond, struFaceSnap.struDevInfo.struDevIP.sIpV4, \
-			struFaceSnap.struDevInfo.wPort, struFaceSnap.struDevInfo.byIvmsChannel);
-
-		char cFileName[256] = { 0 };
-		sprintf(cFileName, "FaceSnapPick_%d.jpg", pictureCount);
-		NET_DVR_CapturePicture(lRealPlayHandle, cFileName);
-		pictureCount++;
-	}
-	break;*/
-	default:
-		printf("Other alarms, alarm information type: 0x%x\n", lCommand);
-		break;
-	}
-
-	return TRUE;
-}
-
-void main() {
-	GetCurrentDirectoryA(256, Lpath);
-	int LimgNum = 0;
-	char LimgName[] = "FaceSnapPick0.jpg";
+void sendRequest(const char LimgName[], int pictureNum) {
+	int LimgNum = pictureCount;
 
 	auto fileStream = make_shared<concurrency::streams::ostream>();
 
@@ -129,7 +47,7 @@ void main() {
 
 	}).then([=](web::http::http_response response) {
 		printf("Received response status code:%u\n", response.status_code());
-		
+
 		return ((concurrency::streams::istream)response.body()).read_to_end(fileStream->streambuf());
 
 	}).then([=](size_t) {
@@ -142,16 +60,68 @@ void main() {
 	catch (const exception &e) {
 		printf("Error Exception : %s\n", e.what());
 	}
-
-	std::system("pause");
 }
 
-/*
+class CaptureFunctor {
+private:
+	int pictureNum;
+	LONG playHandle;
+	string fileName;
+
+public:
+	CaptureFunctor(LONG handle, string fileName, int pictureNum) {
+		this->pictureNum = pictureNum;
+		this->playHandle = handle;
+		this->fileName = fileName;
+	}
+
+	void operator()() {
+		NET_DVR_CapturePictureBlock(playHandle, fileName.c_str(), 20);
+
+		sendRequest(fileName.c_str(), pictureNum);
+		return;
+	}
+};
+
+
+BOOL CALLBACK MessageCallback(LONG lCommand, NET_DVR_ALARMER *pAlarmer, char *pAlarmInfo, DWORD dwBufLen, void* pUser)
+{
+	switch (lCommand)
+	{
+	case COMM_ALARM_FACE_DETECTION:
+	{
+		NET_DVR_FACE_DETECTION struFaceDetectionAlarm = { 0 };
+		memcpy(&struFaceDetectionAlarm, pAlarmInfo, sizeof(NET_DVR_FACE_DETECTION));
+
+		printf("detection\n");
+	}
+	break;
+	case COMM_UPLOAD_FACESNAP_RESULT: //Face detection alarm information
+	{
+		char imgName[] = "FaceSnapPick";
+		char cFileName[256] = { 0 };
+		sprintf(cFileName, "%s%d.jpg", imgName, pictureCount);
+		
+		CaptureFunctor cf(lRealPlayHandle, cFileName, pictureCount);
+		pictureCount++;
+		
+		std::thread captureThread(cf);
+		captureThread.detach();
+	}
+	break;
+	default:
+		printf("Other alarms, alarm information type: 0x%x\n", lCommand);
+		break;
+	}
+
+	return TRUE;
+}
+
 void main() {
 	//---------------------------------------
 	// Initialize
 	NET_DVR_Init();
-	GetCurrentDirectoryA(256, path);
+	GetCurrentDirectoryA(256, Lpath);
 
 	//Set connected and reconnected time
 	NET_DVR_SetConnectTime(2000, 1);
@@ -164,7 +134,7 @@ void main() {
 	//Login parameter, including device IP address, user name, password and so on.
 	NET_DVR_USER_LOGIN_INFO struLoginInfo = { 0 };
 	struLoginInfo.bUseAsynLogin = 0; //Synchronous login mode
-	strcpy(struLoginInfo.sDeviceAddress, "192.168.0.64"); //Device IP address
+	strcpy(struLoginInfo.sDeviceAddress, "192.168.1.64"); //Device IP address
 	struLoginInfo.wPort = 8000; //Device service port
 	strcpy(struLoginInfo.sUserName, "admin"); //User name
 	strcpy(struLoginInfo.sPassword, "q1w2e3r4!"); //Password
@@ -218,7 +188,7 @@ void main() {
 		return;
 	}
 
-	Sleep(50000); //During waiting, device will upload alarm information, and the alarm information will be received and handled in the alarm callback function.
+	Sleep(100000); //During waiting, device will upload alarm information, and the alarm information will be received and handled in the alarm callback function.
 
 				  //Disarm uploading channel
 	if (!NET_DVR_CloseAlarmChan_V30(lHandle))
@@ -235,6 +205,6 @@ void main() {
 	NET_DVR_Logout(lUserID);
 	//Release SDK resource
 	NET_DVR_Cleanup();
+
 	return;
 }
-*/
